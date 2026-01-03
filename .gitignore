@@ -1,0 +1,20 @@
+# Sensitive config files (phải tạo thủ công trên máy/server)
+credentials.json
+config.yaml
+
+# Logs
+*.log
+
+# Build binaries (chỉ ignore file binary ở root, không ignore package)
+/timo
+/timo-app
+/server-bin
+*.exe
+
+# Tools & deploy artifacts
+.vercel
+fyne-cross
+build
+
+# Environment files
+.env*

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh Bạ Gia Đình</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: rgba(30, 41, 59, 0.8);
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --primary: #38bdf8;
+            --accent: #818cf8;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { font-size: 2rem; background: linear-gradient(to right, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .top-nav {
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 16px 24px; background: var(--card); border-bottom: 1px solid var(--border);
+            border-radius: 16px; margin-bottom: 24px; width: 100%;
+        }
+        .nav-btn {
+            padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+            text-decoration: none; color: var(--text); border: 1px solid var(--border);
+            background: rgba(255,255,255,0.05); cursor: pointer; transition: 0.2s; display: inline-block;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.1); }
+        .nav-btn.primary { background: rgba(56, 189, 248, 0.1); color: var(--primary); border-color: rgba(56, 189, 248, 0.3); }
+        .nav-btn.primary:hover { background: rgba(56, 189, 248, 0.2); }
+        .nav-btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+        .nav-btn.danger:hover { background: rgba(239, 68, 68, 0.2); }
+        
+        .tabs { display: flex; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 20px; padding: 4px; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 8px; font-weight: 600; color: var(--muted); transition: 0.3s; }
+        .tab.active { background: var(--primary); color: #0f172a; }
+        
+        .panel { display: none; }
+        .panel.active { display: block; animation: fadeIn 0.4s ease; }
+        
+        /* Directory View */
+        .search-bar { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: white; margin-bottom: 20px; font-family: inherit; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .member-card { background: var(--card); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; transition: 0.3s; position: relative; cursor: pointer; }
+        .member-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); }
+        .member-card h3 { color: var(--primary); font-size: 1.2rem; margin-bottom: 4px; }
+        .member-card p { font-size: 0.9rem; color: var(--muted); margin-bottom: 4px; }
+        .member-card .badge { position: absolute; top: 16px; right: 16px; font-size: 0.7rem; padding: 4px 8px; border-radius: 20px; background: rgba(255,255,255,0.1); }
+        .side-core { background: rgba(34, 197, 94, 0.2) !important; color: #22c55e; }
+        
+        /* Modal Redesign */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); align-items: center; justify-content: center; z-index: 100; padding: 20px; opacity: 0; animation: fadeIn 0.3s forwards; }
+        .modal-content { 
+            background: #1e293b; border-radius: 24px; width: 100%; max-width: 500px; 
+            border: 1px solid rgba(255,255,255,0.05); max-height: 85vh; overflow-y: auto; 
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(56, 189, 248, 0.1);
+            transform: translateY(20px); animation: slideUp 0.4s ease-out forwards;
+        }
+        .modal-header {
+            padding: 24px 30px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            background: linear-gradient(to right, rgba(56, 189, 248, 0.05), rgba(129, 140, 248, 0.05));
+        }
+        .modal-header h2 { margin: 0; font-size: 1.5rem; background: linear-gradient(to right, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .modal-body { padding: 30px; }
+        .modal-content::-webkit-scrollbar { width: 6px; }
+        .modal-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        
+        .form-row { display: flex; gap: 16px; margin-bottom: 16px; }
+        .form-row .form-group { flex: 1; margin-bottom: 0; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select { 
+            width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); 
+            background: rgba(15, 23, 42, 0.6); color: white; font-size: 1rem; transition: 0.3s;
+            outline: none;
+        }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15); background: rgba(15, 23, 42, 0.9); }
+        .form-group input:disabled, .form-group select:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .auth-section { margin-top: 24px; padding: 24px; background: rgba(0,0,0,0.2); border-radius: 16px; border: 1px dashed rgba(255,255,255,0.1); }
+        .auth-section h3 { font-size: 1.1rem; color: var(--primary); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        
+        .modal-footer { display: flex; gap: 12px; margin-top: 30px; }
+        .btn-add { flex: 1; padding: 14px; background: linear-gradient(to right, var(--primary), var(--accent)); color: #fff; border: none; border-radius: 12px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3); }
+        .btn-add:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(56, 189, 248, 0.4); }
+        .btn-cancel { flex: 1; padding: 14px; background: transparent; color: var(--text); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-cancel:hover { background: rgba(255,255,255,0.05); }
+
+        .fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--primary); color: #0f172a; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); cursor: pointer; border: none; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); } to { transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="top-nav">
+            <a href="/" class="nav-btn">← Trang chủ</a>
+            <div>
+                <button onclick="openMyProfile()" class="nav-btn primary" style="margin-right: 8px;">👤 Hồ sơ cá nhân</button>
+                <button onclick="logout()" class="nav-btn danger">Đăng xuất</button>
+            </div>
+        </nav>
+        <header>
+            <h1>Danh Bạ</h1>
+        </header>
+
+        <div id="directory" class="panel active">
+            <input type="text" class="search-bar" id="searchInput" placeholder="Tìm kiếm tên, số điện thoại..." onkeyup="filterDirectory()">
+            <div class="grid" id="directoryGrid">
+                <!-- Cards will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Nút thêm nổi -->
+    <button class="fab" onclick="openAddModal()">+</button>
+
+    <!-- Modal Thêm/Sửa Thành Viên -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Thêm thành viên</h2>
+            </div>
+            <div class="modal-body">
+                <form id="memberForm" onsubmit="saveMember(event)">
+                    <input type="hidden" id="f_id">
+                    
+                    <div class="form-group">
+                        <label>Họ và Tên</label>
+                        <input type="text" id="f_name" placeholder="Ví dụ: Nguyễn Văn A" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Giới tính</label>
+                            <select id="f_gender" required>
+                                <option value="male">Nam</option>
+                                <option value="female">Nữ</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Số điện thoại</label>
+                        <input type="text" id="f_phone" placeholder="09xxxx...">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cha (Tùy chọn)</label>
+                        <select id="f_father"><option value="">-- Chọn --</option></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Mẹ (Tùy chọn)</label>
+                        <select id="f_mother"><option value="">-- Chọn --</option></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Vợ/Chồng (Tùy chọn)</label>
+                        <select id="f_spouse"><option value="">-- Chọn --</option></select>
+                    </div>
+
+                    <div class="auth-section">
+                        <h3>🔑 Cấp quyền đăng nhập</h3>
+                        <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; line-height: 1.4;">Điền thông tin dưới đây nếu muốn cấp tài khoản cho người này vào Web.</p>
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="f_username" placeholder="Ví dụ: nam123">
+                        </div>
+                        <div class="form-group">
+                            <label>Email (Dùng khôi phục mật khẩu)</label>
+                            <input type="email" id="f_email" placeholder="Ví dụ: nam@gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Mật khẩu</label>
+                            <input type="password" id="f_password" placeholder="Bỏ trống nếu không đổi">
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancel" onclick="closeModal()">Hủy</button>
+                        <button type="submit" class="btn-add">Lưu thông tin</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let members = [];
+        let currentUser = null;
+
+        function openAddModal() {
+            document.getElementById('memberForm').reset();
+            document.getElementById('f_id').value = '';
+            document.getElementById('modalTitle').innerText = 'Thêm thành viên';
+            document.getElementById('f_father').disabled = false;
+            document.getElementById('f_mother').disabled = false;
+            document.getElementById('f_spouse').disabled = false;
+            populateSelects(null);
+            document.getElementById('addModal').style.display='flex';
+        }
+
+        function closeModal() {
+            document.getElementById('addModal').style.display='none';
+        }
+
+        function openMyProfile() {
+            if (!currentUser) return alert('Chưa lấy được thông tin người dùng');
+            openEditModal(currentUser.id);
+        }
+
+        function openEditModal(id) {
+            const member = members.find(m => m.id === id);
+            if (!member) return;
+
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            const isSelf = currentUser && currentUser.id === id;
+
+            // Khóa/mở khóa các trường dựa theo quyền
+            const inputs = document.querySelectorAll('#memberForm input, #memberForm select');
+            if (!isAdmin && !isSelf) {
+                // Chỉ xem
+                document.getElementById('modalTitle').innerText = 'Thông tin chi tiết';
+                document.querySelector('.btn-add').style.display = 'none';
+                inputs.forEach(el => el.disabled = true);
+            } else {
+                // Sửa
+                document.getElementById('modalTitle').innerText = isSelf ? 'Hồ sơ cá nhân' : 'Chỉnh sửa thông tin';
+                document.querySelector('.btn-add').style.display = 'block';
+                inputs.forEach(el => el.disabled = false);
+
+                // Nếu không phải admin thì không được tự sửa rễ/quan hệ
+                if (!isAdmin) {
+                    document.getElementById('f_father').disabled = true;
+                    document.getElementById('f_mother').disabled = true;
+                    document.getElementById('f_spouse').disabled = true;
+                }
+            }
+
+            populateSelects(member.id);
+
+            document.getElementById('f_id').value = member.id;
+            document.getElementById('f_name').value = member.full_name;
+            document.getElementById('f_gender').value = member.gender || 'male';
+            document.getElementById('f_phone').value = member.phone || '';
+            document.getElementById('f_father').value = member.father_id || '';
+            document.getElementById('f_mother').value = member.mother_id || '';
+            document.getElementById('f_spouse').value = member.spouse_id || '';
+            document.getElementById('f_username').value = member.username || '';
+            document.getElementById('f_email').value = member.email || '';
+            document.getElementById('f_password').value = '';
+            
+            document.getElementById('addModal').style.display='flex';
+        }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('auth_token');
+            if (!token) {
+                window.location.href = '/login';
+                return {};
+            }
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            };
+        }
+
+        async function loadData() {
+            try {
+                const headers = getAuthHeaders();
+                if (!headers.Authorization) return;
+
+                const [resMe, resFamily] = await Promise.all([
+                    fetch('/api/auth/me', { headers }),
+                    fetch('/api/family', { headers })
+                ]);
+                if (resMe.status === 401 || resFamily.status === 401) {
+                    localStorage.removeItem('auth_token');
+                    window.location.href = '/login';
+                    return;
+                }
+                if (resMe.ok) {
+                    currentUser = await resMe.json();
+                }
+                members = await resFamily.json() || [];
+                populateSelects(null);
+                renderDirectory();
+            } catch(e) { console.error('Error fetching data', e); }
+        }
+
+        function populateSelects(excludeId) {
+            const selects = [document.getElementById('f_father'), document.getElementById('f_mother'), document.getElementById('f_spouse')];
+            selects.forEach(sel => {
+                sel.innerHTML = '<option value="">-- Chọn --</option>';
+                members.forEach(m => {
+                    if (m.id !== excludeId) {
+                        sel.innerHTML += `<option value="${m.id}">${m.full_name}</option>`;
+                    }
+                });
+            });
+        }
+
+        async function saveMember(e) {
+            e.preventDefault();
+            const payload = {
+                full_name: document.getElementById('f_name').value,
+                gender: document.getElementById('f_gender').value,
+                phone: document.getElementById('f_phone').value,
+                father_id: document.getElementById('f_father').value || null,
+                mother_id: document.getElementById('f_mother').value || null,
+                spouse_id: document.getElementById('f_spouse').value || null,
+                username: document.getElementById('f_username').value || null,
+                email: document.getElementById('f_email').value || null,
+                is_alive: true
+            };
+            const pwd = document.getElementById('f_password').value;
+            if (pwd) payload.password_hash = pwd;
+
+            const id = document.getElementById('f_id').value;
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? '/api/family/' + id : '/api/family';
+
+            try {
+                const headers = getAuthHeaders();
+                if (!headers.Authorization) return;
+
+                const res = await fetch(url, {
+                    method: method,
+                    headers: headers,
+                    body: JSON.stringify(payload)
+                });
+                if(res.status === 401) {
+                    localStorage.removeItem('auth_token');
+                    window.location.href = '/login';
+                    return;
+                }
+                if(!res.ok) {
+                    const text = await res.text();
+                    alert('Lỗi: ' + text);
+                    return;
+                }
+                closeModal();
+                loadData();
+            } catch(e) { alert('Lỗi khi lưu: ' + e); }
+        }
+
+        function renderDirectory() {
+            const grid = document.getElementById('directoryGrid');
+            grid.innerHTML = '';
+            members.forEach(m => {
+                grid.innerHTML += `
+                    <div class="member-card" onclick="openEditModal('${m.id}')">
+                        <h3>${m.full_name}</h3>
+                        <p>📞 ${m.phone || 'Chưa cập nhật'}</p>
+                        <p>⚧ ${m.gender === 'male' ? 'Nam' : 'Nữ'}</p>
+                    </div>
+                `;
+            });
+        }
+
+        function filterDirectory() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const cards = document.querySelectorAll('.member-card');
+            cards.forEach(card => {
+                const text = card.innerText.toLowerCase();
+                card.style.display = text.includes(term) ? 'block' : 'none';
+            });
+        }
+
+        async function logout() {
+            localStorage.removeItem('auth_token');
+            const headers = getAuthHeaders();
+            if (headers.Authorization) {
+                await fetch('/api/auth/logout', {method: 'POST', headers});
+            }
+            window.location.href = '/login';
+        }
+
+        loadData();
+    </script>
+</body>
+</html>

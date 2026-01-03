@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - Family Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: rgba(30, 41, 59, 0.8);
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --primary: #38bdf8;
+            --primary-hover: #0ea5e9;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-box {
+            background: var(--card);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            padding: 40px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        .login-box h2 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+        .login-box p {
+            color: var(--muted);
+            margin-bottom: 24px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: 0.3s;
+        }
+        .form-group input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(56,189,248,0.2);
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: #0f172a;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+        .links {
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+        .links a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .links a:hover {
+            text-decoration: underline;
+        }
+        .error-msg {
+            color: #ef4444;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        /* Modal Forgot Password */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 100; }
+        .modal-content { background: #1e293b; padding: 30px; border-radius: 16px; width: 90%; max-width: 400px; border: 1px solid var(--primary); }
+    </style>
+</head>
+<body>
+
+    <div class="login-box">
+        <h2>Family Portal</h2>
+        <p>Đăng nhập để vào nhà</p>
+
+        <div id="errorBox" class="error-msg"></div>
+
+        <form id="loginForm" onsubmit="doLogin(event)">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" required>
+            </div>
+            <div class="form-group">
+                <label>Mật khẩu</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" class="btn">Đăng nhập</button>
+        </form>
+
+        <div class="links">
+            <a href="javascript:void(0)" onclick="document.getElementById('forgotModal').style.display='flex'">Quên mật khẩu?</a>
+        </div>
+    </div>
+
+    <!-- Modal Forgot Password -->
+    <div id="forgotModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 16px; color: var(--primary)">Khôi phục mật khẩu</h3>
+            <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 16px;">Nhập email của bạn. Nếu tồn tại, hệ thống sẽ gửi mật khẩu mới vào hộp thư.</p>
+            <form onsubmit="doForgot(event)">
+                <div class="form-group">
+                    <input type="email" id="forgotEmail" placeholder="Email của bạn" required>
+                </div>
+                <button type="submit" class="btn" id="btnForgot">Gửi mật khẩu mới</button>
+                <button type="button" class="btn" style="background:transparent; color: var(--muted); border: 1px solid var(--muted); margin-top: 8px;" onclick="document.getElementById('forgotModal').style.display='none'">Hủy</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        async function doLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const errBox = document.getElementById('errorBox');
+            
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, password: p})
+                });
+                if(res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('auth_token', data.token);
+                    window.location.href = '/family'; // Cần redirect tới /family vì / có thể được chặn hoặc home.html chuyển hướng sai
+                } else {
+                    const text = await res.text();
+                    errBox.innerText = text;
+                    errBox.style.display = 'block';
+                }
+            } catch(e) {
+                errBox.innerText = "Lỗi kết nối";
+                errBox.style.display = 'block';
+            }
+        }
+
+        async function doForgot(e) {
+            e.preventDefault();
+            const email = document.getElementById('forgotEmail').value;
+            const btn = document.getElementById('btnForgot');
+            btn.innerText = "Đang gửi...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email})
+                });
+                alert("Yêu cầu đã được gửi. Vui lòng kiểm tra email.");
+                document.getElementById('forgotModal').style.display='none';
+            } catch(e) {
+                alert("Có lỗi xảy ra");
+            }
+            btn.innerText = "Gửi mật khẩu mới";
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>

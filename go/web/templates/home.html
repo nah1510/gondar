@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Web Server</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --text-color: #f8fafc;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --primary: #38bdf8;
+            --accent: #818cf8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+        .top-nav {
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 16px 24px; background: var(--card-bg); border-bottom: 1px solid var(--card-border);
+            border-radius: 16px; margin-bottom: 30px; width: 100%; max-width: 1000px;
+            backdrop-filter: blur(12px);
+        }
+        .nav-brand { font-weight: 800; font-size: 1.2rem; color: var(--primary); }
+        .nav-btn {
+            padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+            text-decoration: none; color: var(--text-color); border: 1px solid var(--card-border);
+            background: rgba(255,255,255,0.05); cursor: pointer; transition: 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.1); }
+        .nav-btn.danger { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+        .nav-btn.danger:hover { background: rgba(239, 68, 68, 0.2); }
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+        p.subtitle {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            font-weight: 300;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+            width: 100%;
+            max-width: 1000px;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+        .app-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 30px 24px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            position: relative;
+            overflow: hidden;
+        }
+        .app-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        .app-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 20px rgba(56, 189, 248, 0.2);
+            border-color: rgba(56, 189, 248, 0.4);
+        }
+        .app-card:hover::before { opacity: 1; }
+        .icon {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+            background: rgba(255,255,255,0.05);
+            width: 64px; height: 64px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .app-card h2 {
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .app-card p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .coming-soon {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .badge {
+            position: absolute;
+            top: 20px; right: 20px;
+            background: rgba(56, 189, 248, 0.2);
+            color: var(--primary);
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="nav-brand">Timo Sync Portal</div>
+        <div>
+            <button onclick="logout()" class="nav-btn danger">Đăng xuất 🚪</button>
+        </div>
+    </nav>
+
+    <header>
+        <h1>Trang Chủ</h1>
+        <p class="subtitle">Trung tâm quản lý gia đình tập trung</p>
+    </header>
+
+    <div class="grid">
+        <!-- Timo Sync Feature -->
+        <a href="/timo" class="app-card">
+            <div class="badge">Active</div>
+            <div class="icon">💳</div>
+            <h2>Timo Sync</h2>
+            <p>Đồng bộ giao dịch ngân hàng Timo tự động vào Google Sheets và Telegram.</p>
+        </a>
+
+
+        <!-- Placeholder for future feature -->
+        <div class="app-card coming-soon">
+            <div class="icon">📝</div>
+            <h2>Ghi chú & Công việc</h2>
+            <p>Quản lý công việc chung, danh sách đi chợ, nhắc nhở sinh nhật gia đình.</p>
+        </div>
+
+        <!-- Placeholder for future feature -->
+        <div class="app-card coming-soon">
+            <div class="icon">🏠</div>
+            <h2>Điều khiển Nhà</h2>
+            <p>Smart home dashboard, theo dõi nhiệt độ, điều khiển đèn và thiết bị.</p>
+        </div>
+    </div>
+    <script>
+        async function logout() {
+            await fetch('/api/auth/logout', {method: 'POST'});
+            window.location.href = '/login';
+        }
+    </script>
+</body>
+</html>

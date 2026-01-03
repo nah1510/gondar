@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// (Đã xoá bảng family_members theo yêu cầu)
+
+// ========================
+// NextAuth Tables
+// ========================
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  userRoles     UserRole[]
+  is_super_admin Boolean @default(false)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ========================
+// RBAC Tables
+// ========================
+model Role {
+  id          String @id // vd: 'admin', 'user', 'guest'
+  description String?
+  userRoles   UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String @id // vd: 'timo:sync', 'dashboard:view'
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@id([roleId, permissionId])
+}
+
+enum Category {
+  THUC_PHAM     @map("Thực phẩm")
+  QUA_TANG      @map("Quà tặng")
+  SUC_KHOE      @map("Sức khỏe")
+  NHA           @map("Nhà")
+  CA_NHAN_VO    @map("Cá nhân vợ")
+  CA_NHAN_CHONG @map("Cá nhân chồng")
+  AN_UONG       @map("Ăn uống")
+  DI_LAI        @map("Đi lại")
+  GIA_DUNG      @map("Gia dụng")
+  DU_LICH       @map("Du lịch")
+  THUE_PHI      @map("Thuế/phí")
+  BAO_DUONG     @map("Bảo dưỡng")
+}
+
+model CategoryMapping {
+  id        String   @id @default(cuid())
+  keyword   String   @unique
+  category  Category
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

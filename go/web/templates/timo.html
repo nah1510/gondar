@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timo Transaction Sync Dashboard</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --primary: #38bdf8;
+            --primary-hover: #0ea5e9;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --terminal: #020617;
+            --border: #334155;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 24px 16px;
+        }
+        .container { width: 100%; max-width: 900px; }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+        }
+        .header-left h1 { font-size: 1.4rem; color: var(--primary); }
+        .header-left p { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+        .badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: var(--border);
+            color: var(--muted);
+            transition: all 0.3s;
+        }
+        .badge.running { background: #1e3a8a; color: var(--primary); animation: pulse 1.5s infinite; }
+        .badge.done    { background: #064e3b; color: var(--success); }
+        .badge.error   { background: #7f1d1d; color: var(--error); }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
+        }
+        .btn {
+            background: var(--primary);
+            color: #0f172a;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+        .terminal {
+            background: var(--terminal);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            height: 420px;
+            overflow-y: auto;
+            font-family: "Fira Code", "Cascadia Code", Consolas, monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #34d399;
+            margin-top: 16px;
+        }
+        .log-line { margin-bottom: 2px; white-space: pre-wrap; word-break: break-all; }
+        .log-error { color: var(--error); }
+        .log-success { color: var(--success); font-weight: 600; }
+        .log-warning { color: var(--warning); font-weight: 600; }
+        .summary {
+            margin-top: 16px;
+            padding: 16px;
+            border-radius: 8px;
+            background: #0f172a;
+            border-left: 3px solid var(--primary);
+            display: none;
+        }
+        .summary strong { color: var(--primary); }
+        .summary p { margin-top: 8px; color: var(--muted); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="header-left">
+            <h1>⚡ Timo Sync Dashboard</h1>
+            <p>Đồng bộ giao dịch Timo → Google Sheets + Telegram</p>
+        </div>
+        <span id="badge" class="badge">IDLE</span>
+    </header>
+
+    <div class="card">
+        <button id="syncBtn" class="btn" onclick="startSync()">🚀 Chạy đồng bộ</button>
+        <div id="terminal" class="terminal">
+            <div class="log-line" style="color:var(--muted)">[Hệ thống] Sẵn sàng. Nhấn nút để kích hoạt...</div>
+        </div>
+    </div>
+
+    <div class="summary" id="summary">
+        <strong>Kết quả tổng hợp</strong>
+        <p id="summaryText"></p>
+    </div>
+</div>
+
+<script>
+    const badge   = document.getElementById('badge');
+    const syncBtn = document.getElementById('syncBtn');
+    const terminal= document.getElementById('terminal');
+    const summary = document.getElementById('summary');
+    const summaryText = document.getElementById('summaryText');
+
+    function setStatus(s) {
+        badge.className = 'badge ' + s;
+        badge.innerText = s.toUpperCase();
+        syncBtn.disabled = s === 'running';
+        syncBtn.innerText = s === 'running' ? '⏳ Đang đồng bộ...' : '🚀 Chạy đồng bộ';
+    }
+
+    function addLog(text, cls) {
+        const d = document.createElement('div');
+        d.className = 'log-line' + (cls ? ' ' + cls : '');
+        d.innerText = text;
+        terminal.appendChild(d);
+        terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function startSync() {
+        terminal.innerHTML = '';
+        summary.style.display = 'none';
+        setStatus('running');
+        addLog('[Hệ thống] Đang kết nối stream...');
+
+        const es = new EventSource('/api/timo/stream');
+
+        es.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.level) {
+                let cls = '';
+                if (data.level === 'error') cls = 'log-error';
+                else if (data.level === 'success') cls = 'log-success';
+                else if (data.level === 'warning') cls = 'log-warning';
+                addLog(data.message, cls);
+            }
+            if (data.event === 'done') {
+                es.close();
+                setStatus('done');
+                addLog('\n[✓ Hoàn thành] ' + (data.summary ? 'Có giao dịch mới được đồng bộ.' : 'Không có giao dịch mới.'), 'log-success');
+                if (data.summary) {
+                    summaryText.innerHTML = data.summary.replace(/\n/g, '<br>');
+                    summary.style.display = 'block';
+                }
+            } else if (data.event === 'error') {
+                es.close();
+                setStatus('error');
+                addLog(data.log || '[Lỗi không xác định]', 'log-error');
+            }
+        };
+
+        es.onerror = function() {
+            es.close();
+            if (badge.className.includes('running')) {
+                setStatus('error');
+                addLog('[Lỗi] Mất kết nối tới server.', 'log-error');
+            }
+        };
+    }
+</script>
+</body>
+</html>
