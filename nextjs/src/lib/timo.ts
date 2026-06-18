@@ -165,8 +165,7 @@ export async function syncTimoTransactions(sendLog?: (level: string, message: st
         tx.date,
         tx.item.txnAmount,
         tx.desc,
-        "Timo",
-        detectCategory(tx.desc)
+        "Lương"
       ]);
     } else {
       batchSpendings.push([
