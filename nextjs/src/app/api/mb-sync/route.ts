@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { CategoryLabels } from "@/lib/constants";
+import { CategoryLabels, parseCategoryShortcode } from "@/lib/constants";
 import { google } from "googleapis";
 import prisma from "@/lib/prisma";
 import { parseMbStatement, ParsedTransaction } from "@/lib/mb-parser";
@@ -173,6 +173,13 @@ export async function POST(req: Request) {
             batchHashes.push([tx.hash]);
             newTxnCount++;
 
+            const parsed = parseCategoryShortcode(tx.description);
+            const cleanDesc = parsed.cleanDesc;
+            const forcedCategory = parsed.category ? CategoryLabels[parsed.category] : null;
+
+            // Optional: update tx.description so telegram notification is clean too
+            tx.description = cleanDesc;
+
             if (tx.isIncome) {
               // Bỏ qua các khoản + tiền (thanh toán dư nợ thẻ) vì đây không phải là Thu nhập
               skippedIncomes.push(tx);
@@ -180,9 +187,9 @@ export async function POST(req: Request) {
               batchSpendings.push([
                 tx.date,
                 Math.abs(tx.amount),
-                tx.description,
+                cleanDesc,
                 cardType, // MB Mastercard, MB JCB, or MB VISA
-                detectCategory(tx.description)
+                forcedCategory || detectCategory(cleanDesc)
               ]);
             }
           }

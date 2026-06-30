@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
-import { CategoryLabels } from "@/lib/constants";
+import { CategoryLabels, parseCategoryShortcode } from "@/lib/constants";
 
 function formatGoFloat(n: number): string {
   const abs = Math.abs(n);
@@ -160,24 +160,32 @@ export async function syncTimoTransactions(sendLog?: (level: string, message: st
     
     batchHashes.push([tx.hash]);
 
+    const parsed = parseCategoryShortcode(tx.desc);
+    const cleanDesc = parsed.cleanDesc;
+    const forcedCategory = parsed.category ? CategoryLabels[parsed.category] : null;
+
+    // Optional: update tx.desc so telegram notification is clean too
+    tx.desc = cleanDesc;
+
     if (tx.isIncome) {
       batchIncomes.push([
         tx.date,
         tx.item.txnAmount,
-        tx.desc,
+        cleanDesc,
+        "Timo",
         "Lương"
       ]);
     } else {
       batchSpendings.push([
         tx.date,
         Math.abs(tx.item.txnAmount),
-        tx.desc,
+        cleanDesc,
         "Timo",
-        detectCategory(tx.desc)
+        forcedCategory || detectCategory(cleanDesc)
       ]);
     }
 
-    newTxnSummary += `• <b>Ngày:</b> ${tx.date}\n• <b>Loại:</b> ${tx.type}\n• <b>Số tiền:</b> <code>${tx.item.txnAmount.toFixed(2)}</code>\n• <b>Mô tả:</b> ${tx.item.txnTitle} - ${tx.desc}\n\n`;
+    newTxnSummary += `• <b>Ngày:</b> ${tx.date}\n• <b>Loại:</b> ${tx.type}\n• <b>Số tiền:</b> <code>${tx.item.txnAmount.toFixed(2)}</code>\n• <b>Mô tả:</b> ${tx.item.txnTitle} - ${cleanDesc}\n\n`;
   }
 
   // 5. Ghi Batch vào Google Sheets
