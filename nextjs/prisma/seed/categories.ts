@@ -37,7 +37,20 @@ export async function seedCategories(prisma: PrismaClient) {
     { keyword: 'rau má', category: Category.AN_UONG },
     { keyword: 'máy', category: Category.GIA_DUNG },
     { keyword: 'xiên', category: Category.AN_UONG },
-    { keyword: 'cá viên chiên', category: Category.AN_UONG }
+    { keyword: 'cá viên chiên', category: Category.AN_UONG },
+    { keyword: 'cháo hàu', category: Category.AN_UONG },
+    { keyword: 'cháo lòng', category: Category.AN_UONG },
+    { keyword: 'cháo vịt', category: Category.AN_UONG },
+    { keyword: 'cháo gà', category: Category.AN_UONG },
+    { keyword: 'cháo ếch', category: Category.AN_UONG },
+    { keyword: 'cháo sườn', category: Category.AN_UONG },
+    { keyword: 'cháo dinh dưỡng', category: Category.AN_UONG },
+    { keyword: 'cháo hải sản', category: Category.AN_UONG },
+    { keyword: 'cháo mực', category: Category.AN_UONG },
+    { keyword: 'cháo gói', category: Category.THUC_PHAM },
+    { keyword: 'cháo hộp', category: Category.THUC_PHAM },
+    { keyword: 'cháo ăn liền', category: Category.THUC_PHAM },
+    { keyword: 'cháo yến mạch', category: Category.THUC_PHAM }
   ];
 
   await prisma.categoryMapping.deleteMany({});
