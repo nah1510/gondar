@@ -73,30 +73,47 @@ export async function syncTimoTransactions(sendLog?: (level: string, message: st
   await log("info", `Đã tải thành công ${existingHashes.size} mã Hash hiện có.`);
 
   // 2. Lấy dữ liệu Timo
-  const timoResp = await fetch(process.env.TIMO_API_URL!, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    },
-    body: JSON.stringify({
-      size: 20,
-      xidIndex: 0,
-      hashVerifyCode: process.env.TIMO_HASH_VERIFY_CODE,
-      lang: "EN",
-      securityCode: process.env.TIMO_SECURITY_CODE,
-    })
-  });
+      const timoResp = await fetch(process.env.TIMO_API_URL!, {
+        method: "POST",
+        headers: {
+            "accept": "application/json, text/plain",
+            "accept-language": "vi,en;q=0.9",
+            "content-type": "application/json; charset=UTF-8",
+            "origin": "https://share.timo.vn",
+            "priority": "u=1, i",
+            "referer": "https://share.timo.vn/",
+            "sec-ch-ua": '"Google Chrome";v="155", "Chromium";v="155", "Not(A:Brand";v="24"',
+            "sec-ch-ua-mobile": "?1",
+            "sec-ch-ua-platform": '"Android"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-site",
+            "user-agent": "Mozilla/5.0 (Linux; Android 16; Pixel 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Mobile Safari/537.36"
+        },
+        body: JSON.stringify({
+            size: 20,
+            xidIndex: 0,
+            hashVerifyCode: process.env.TIMO_HASH_VERIFY_CODE,
+            lang: "EN",
+            ...(process.env.TIMO_SECURITY_CODE ? { securityCode: process.env.TIMO_SECURITY_CODE } : {}),
+        })
+    });
 
-  if (!timoResp.ok) {
-    throw new Error(`Lỗi gọi API Timo: ${timoResp.status}`);
-  }
+    if (!timoResp.ok) {
+        const errorText = await timoResp.text();
+        console.error("Chi tiết lỗi Timo API:", {
+            status: timoResp.status,
+            statusText: timoResp.statusText,
+            headers: Object.fromEntries(timoResp.headers.entries()),
+            body: errorText,
+        });
+        throw new Error(`Lỗi gọi API Timo (HTTP ${timoResp.status} ${timoResp.statusText}): ${errorText}`);
+    }
 
-  const timoData = await timoResp.json();
-  if (!timoData.success) {
-    throw new Error(`API Timo trả về lỗi (Code: ${timoData.code})`);
-  }
+    const timoData = await timoResp.json();
+    if (!timoData.success) {
+        throw new Error(`API Timo trả về lỗi (Code: ${timoData.code}): ${JSON.stringify(timoData)}`);
+    }
 
   await log("success", "✅ Đã lấy dữ liệu thành công. Bắt đầu đối chiếu giao dịch...");
 
