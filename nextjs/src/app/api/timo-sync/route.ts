@@ -34,6 +34,7 @@ export async function GET(req: Request) {
     try {
       await syncTimoTransactions(sendLog);
     } catch (e: unknown) {
+      console.error("[Timo Sync Error]:", e);
       await sendLog("error", `❌ Lỗi hệ thống: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       await closeStream();

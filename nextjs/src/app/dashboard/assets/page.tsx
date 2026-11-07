@@ -131,7 +131,7 @@ export default function AssetGroupsPage() {
                   <div className="flex items-center justify-between text-xs text-gray-500 mt-2">
                     <div className="flex items-center">
                       <Users size={12} className="mr-1" />
-                      <span>{g.members?.length || 0} thành viên</span>
+                      <span>{(g.members?.length || 0) + 1} thành viên</span>
                     </div>
                     <div>
                       {g._count?.assets || 0} tài sản

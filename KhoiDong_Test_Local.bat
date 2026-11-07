@@ -2,7 +2,7 @@
 title TIMO SYNC - Local Server
 color 0A
 
-cd /d "d:\Projects\timo-transaction-sync"
+cd /d "C:\Users\Admins\Desktop\gondar"
 
 echo ===================================================
 echo   DANG KHOI DONG MAY CHU THU NGHIEM (NEXT.JS)

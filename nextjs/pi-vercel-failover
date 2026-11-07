@@ -1,0 +1,38 @@
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    // 1. Thử gửi request về con Pi qua Cloudflare Tunnel trước
+    const piUrl = new URL(request.url);
+    piUrl.hostname = "app-pi.phambaohan.id.vn";
+
+    const piHeaders = new Headers(request.headers);
+    piHeaders.set("X-Forwarded-Host", url.hostname);
+
+    try {
+      const controller = new AbortController();
+      // Nếu Pi không phản hồi trong 4 giây (mất mạng/treo) thì chuyển sang Vercel
+      const timeout = setTimeout(() => controller.abort(), 4000);
+
+      const piResponse = await fetch(piUrl.toString(), {
+        method: request.method,
+        headers: piHeaders,
+        body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+        redirect: "manual",
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      // Lỗi 502, 503, 504, 530 là mã lỗi khi Cloudflare Tunnel không kết nối được tới Pi
+      if (![502, 503, 504, 530].includes(piResponse.status)) {
+        return piResponse;
+      }
+    } catch (e) {
+      // Lỗi kết nối hoặc timeout -> chuyển xuống fallback Vercel bên dưới
+    }
+
+    // 2. Fallback: Nếu con Pi tắt hoặc lỗi, gọi thẳng về bản trên Vercel (qua DNS gốc)
+    return fetch(request);
+  },
+};

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { Plus, Trash2, Users, Coins, ArrowLeft, Loader2, Landmark, Edit2, TrendingUp, TrendingDown, Search, FolderOpen, Calendar, Wallet } from "lucide-react";
+import { Plus, Trash2, Users, Coins, ArrowLeft, Loader2, Landmark, Edit2, TrendingUp, TrendingDown, Search, FolderOpen, Calendar, Wallet, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function AssetGroupDetail(props: { params: Promise<{ id: string }> }) {
@@ -12,6 +12,7 @@ export default function AssetGroupDetail(props: { params: Promise<{ id: string }
   const [goldPrices, setGoldPrices] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"ASSETS" | "MEMBERS">("ASSETS");
+  const [expandedGoldGroups, setExpandedGoldGroups] = useState<Record<string, boolean>>({});
 
   // Forms state
   const [showAddMember, setShowAddMember] = useState(false);
@@ -105,6 +106,17 @@ export default function AssetGroupDetail(props: { params: Promise<{ id: string }
     });
   };
 
+  const getGoldShopName = (rawName: string) => {
+    if (!rawName) return "";
+    return rawName.replace(/^\d+(?:[.,]\d+)?\s*chỉ\s*vàng\s*/i, "").trim() || rawName.trim();
+  };
+
+  const getGoldTypeLabel = (goldType: string) => {
+    if (goldType === "SJ9999") return "Vàng Nhẫn Tư Nhân";
+    if (goldType === "SJC") return "Vàng Miếng SJC";
+    return goldType;
+  };
+
   const handleEditAsset = (asset: any) => {
     setAssetType(asset.type);
     setEditingAssetId(asset.id);
@@ -112,7 +124,7 @@ export default function AssetGroupDetail(props: { params: Promise<{ id: string }
     const formatDate = (ds: string) => { try { return new Date(ds).toISOString().split('T')[0]; } catch { return ""; } };
 
     setAssetForm({
-      name: asset.name || "",
+      name: asset.type === "GOLD" ? getGoldShopName(asset.name || "") : (asset.name || ""),
       value: asset.type === "SAVINGS" ? asset.value?.toString() : d?.quantity?.toString() || "",
       bankName: d?.bankName || "",
       interestRate: d?.interestRate?.toString() || "",
@@ -144,7 +156,7 @@ export default function AssetGroupDetail(props: { params: Promise<{ id: string }
 
       const payload = {
         type: assetType,
-        name: assetForm.name,
+        name: assetType === "GOLD" ? getGoldShopName(assetForm.name) : assetForm.name,
         value: assetType === "SAVINGS" ? parseFloat(assetForm.value) : parseFloat(assetForm.quantity),
         description: "",
         details
@@ -237,24 +249,80 @@ export default function AssetGroupDetail(props: { params: Promise<{ id: string }
     </div>
   );
 
+  // Tính tổng tài sản hiện tại (Vàng + Tiết kiệm) và danh sách hiển thị đã gộp Vàng cùng tên + loại vàng
+  let totalCurrentAssetsValue = 0;
+  let totalInvestedValue = 0;
+
+  type DisplayItem =
+    | { kind: "SAVINGS"; asset: any }
+    | { kind: "GOLD_GROUP"; key: string; shopName: string; goldType: string; items: any[] };
+
+  const displayItems: DisplayItem[] = [];
+  const goldGroupMap = new Map<string, { kind: "GOLD_GROUP"; key: string; shopName: string; goldType: string; items: any[] }>();
+
+  for (const a of group.assets || []) {
+    if (a.type === "GOLD") {
+      const p = calculateGoldProfit(a);
+      const buyPrice = Number(a.details?.buyPrice) || 0;
+      totalInvestedValue += buyPrice;
+      totalCurrentAssetsValue += p ? p.currentValue : buyPrice;
+
+      const shopName = getGoldShopName(a.name || "");
+      const goldType = a.details?.goldType || "SJC";
+      const key = `${shopName.toLowerCase()}__${goldType}`;
+
+      let existingGroup = goldGroupMap.get(key);
+      if (!existingGroup) {
+        existingGroup = { kind: "GOLD_GROUP", key, shopName, goldType, items: [] };
+        goldGroupMap.set(key, existingGroup);
+        displayItems.push(existingGroup);
+      }
+      existingGroup.items.push(a);
+    } else {
+      const sp = calculateSavingsProfit(a);
+      const principal = Number(a.value) || 0;
+      totalInvestedValue += principal;
+      totalCurrentAssetsValue += sp ? sp.totalCurrentValue : principal;
+      displayItems.push({ kind: "SAVINGS", asset: a });
+    }
+  }
+
+  const totalProfitDiff = totalCurrentAssetsValue - totalInvestedValue;
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-20">
       {/* Header Area */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 sm:px-8 py-5">
-          <div className="flex items-center space-x-4">
-            <button onClick={() => router.push('/dashboard/assets')} className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
-              <ArrowLeft size={22} />
-            </button>
-            <div className="flex-1">
-              <div className="flex items-center">
-                <div className="p-2 bg-indigo-50 rounded-lg mr-3">
-                  <FolderOpen size={24} className="text-indigo-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <button onClick={() => router.push('/dashboard/assets')} className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors">
+                <ArrowLeft size={22} />
+              </button>
+              <div className="flex-1">
+                <div className="flex items-center">
+                  <div className="p-2 bg-indigo-50 rounded-lg mr-3">
+                    <FolderOpen size={24} className="text-indigo-600" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{group.name}</h1>
+                    {group.description && <p className="text-sm text-slate-500 mt-0.5">{group.description}</p>}
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{group.name}</h1>
-                  {group.description && <p className="text-sm text-slate-500 mt-0.5">{group.description}</p>}
-                </div>
+              </div>
+            </div>
+
+            {/* Tổng tài sản hiện tại */}
+            <div className="bg-gradient-to-r from-indigo-50 to-emerald-50/70 border border-indigo-100 rounded-2xl px-4 py-3 flex flex-col sm:items-end">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-600/80">Tổng tài sản hiện tại</div>
+              <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+                {Math.round(totalCurrentAssetsValue).toLocaleString()} <span className="text-sm font-semibold text-slate-500">VNĐ</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs mt-0.5 font-medium">
+                <span className="text-slate-500">Vốn gốc: {Math.round(totalInvestedValue).toLocaleString()}đ</span>
+                <span className={totalProfitDiff >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
+                  ({totalProfitDiff >= 0 ? "+" : ""}{Math.round(totalProfitDiff).toLocaleString()}đ)
+                </span>
               </div>
             </div>
           </div>
@@ -353,8 +421,17 @@ export default function AssetGroupDetail(props: { params: Promise<{ id: string }
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Tên tài sản</label>
-                      <input type="text" placeholder="VD: Sổ Tích Lũy BIDV" value={assetForm.name} onChange={e => setAssetForm({ ...assetForm, name: e.target.value })} required className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 text-slate-900 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" />
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">
+                        {assetType === "GOLD" ? "Tên tiệm vàng" : "Tên tài sản"}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={assetType === "GOLD" ? "VD: Ngọc Diệp" : "VD: Sổ Tích Lũy BIDV"}
+                        value={assetForm.name}
+                        onChange={e => setAssetForm({ ...assetForm, name: e.target.value })}
+                        required
+                        className="w-full bg-slate-50 border border-slate-200 px-4 py-2.5 text-slate-900 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                      />
                     </div>
 
                     {assetType === "SAVINGS" && (
@@ -426,17 +503,205 @@ export default function AssetGroupDetail(props: { params: Promise<{ id: string }
             )}
 
             <div className="grid grid-cols-1 gap-5">
-              {group.assets.length === 0 && (
+              {displayItems.length === 0 && (
                 <div className="bg-white py-16 flex flex-col items-center justify-center border border-dashed border-slate-300 rounded-2xl shadow-sm">
                   <Wallet size={48} className="text-slate-200 mb-4" />
                   <h3 className="text-slate-500 font-semibold text-lg">Chưa có tài sản nào</h3>
                   <p className="text-slate-400 text-sm mt-1">Hãy thêm tài sản mới để bắt đầu quản lý.</p>
                 </div>
               )}
-              {group.assets.map((a: any) => {
-                const isGold = a.type === "GOLD";
-                const profit = isGold ? calculateGoldProfit(a) : null;
+              {displayItems.map((entry) => {
+                if (entry.kind === "GOLD_GROUP") {
+                  const { key, shopName, goldType, items } = entry;
+                  const isMultiple = items.length > 1;
+                  const isExpanded = !!expandedGoldGroups[key];
 
+                  const totalQuantity = items.reduce((sum, item) => sum + (Number(item.details?.quantity) || 0), 0);
+                  const totalBuyPrice = items.reduce((sum, item) => sum + (Number(item.details?.buyPrice) || 0), 0);
+
+                  let aggProfit: { currentValue: number; actualProfit: number; bankProfit: number; difference: number } | null = null;
+                  if (goldPrices) {
+                    aggProfit = items.reduce(
+                      (acc, item) => {
+                        const p = calculateGoldProfit(item);
+                        if (p) {
+                          acc.currentValue += p.currentValue;
+                          acc.actualProfit += p.actualProfit;
+                          acc.bankProfit += p.bankProfit;
+                          acc.difference += p.difference;
+                        }
+                        return acc;
+                      },
+                      { currentValue: 0, actualProfit: 0, bankProfit: 0, difference: 0 }
+                    );
+                  }
+
+                  const displayTitle = `${totalQuantity} chỉ vàng ${shopName}`;
+                  const singleItem = items[0];
+
+                  return (
+                    <div key={key} className="bg-white rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200/60 transition-all overflow-hidden">
+                      <div
+                        onClick={() => {
+                          if (isMultiple) {
+                            setExpandedGoldGroups(prev => ({ ...prev, [key]: !prev[key] }));
+                          }
+                        }}
+                        className={`p-5 flex flex-col md:flex-row md:items-center relative group ${isMultiple ? "cursor-pointer select-none" : ""}`}
+                      >
+                        {!isMultiple && singleItem && (
+                          <div className="absolute top-4 right-4 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={(e) => { e.stopPropagation(); handleEditAsset(singleItem); }} className="p-2 text-slate-400 hover:text-indigo-600 bg-white shadow-sm rounded-full border border-slate-200 transition-all" title="Sửa">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteAsset(singleItem.id); }} className="p-2 text-slate-400 hover:text-rose-600 bg-white shadow-sm rounded-full border border-slate-200 transition-all" title="Xóa">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="flex items-start space-x-4 flex-1">
+                          <div className="p-3.5 rounded-xl flex-shrink-0 bg-amber-100/50 text-amber-600 ring-1 ring-amber-200">
+                            <Coins size={24} />
+                          </div>
+                          <div className="pt-1">
+                            <div className="flex items-center gap-2 flex-wrap pr-12">
+                              <h3 className="text-slate-900 font-bold text-lg leading-tight">{displayTitle}</h3>
+                              {isMultiple && (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                  {items.length} tài sản
+                                  {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center mt-2 gap-3">
+                              <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-600">
+                                {totalQuantity} chỉ {getGoldTypeLabel(goldType)}
+                              </span>
+                              {!isMultiple && singleItem?.details?.buyDate && (
+                                <span className="inline-flex items-center text-xs font-medium text-slate-500">
+                                  <Calendar size={12} className="mr-1" /> Mua: {new Date(singleItem.details.buyDate).toLocaleDateString('vi-VN')}
+                                </span>
+                              )}
+                              <span className="inline-flex items-center text-xs font-medium text-slate-500">
+                                <Wallet size={12} className="mr-1" /> Vốn: {totalBuyPrice.toLocaleString()}đ
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 md:mt-0 md:ml-6 md:text-right flex flex-col items-start md:items-end justify-center min-w-[200px] border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+                          {aggProfit ? (
+                            <>
+                              <div className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Định giá hiện tại</div>
+                              <div className="text-2xl font-black text-slate-900 tracking-tight font-mono mb-2">
+                                {Math.round(aggProfit.currentValue).toLocaleString()} <span className="text-sm font-semibold text-slate-500">VNĐ</span>
+                              </div>
+
+                              <div className="flex flex-col space-y-1.5 w-full">
+                                <div className={`flex items-center justify-between text-sm px-2.5 py-1.5 rounded-lg font-medium ${aggProfit.actualProfit >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                                  <span className="mr-4">Biến động:</span>
+                                  <span className="flex items-center">
+                                    {aggProfit.actualProfit > 0 ? <TrendingUp size={14} className="mr-1" /> : <TrendingDown size={14} className="mr-1" />}
+                                    {aggProfit.actualProfit > 0 ? "+" : ""}{Math.round(aggProfit.actualProfit).toLocaleString()} đ
+                                  </span>
+                                </div>
+
+                                <div className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg font-medium ${aggProfit.difference >= 0 ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"}`}>
+                                  <span className="mr-4">So vs gửi NH:</span>
+                                  <span>{aggProfit.difference > 0 ? "+" : ""}{Math.round(aggProfit.difference).toLocaleString()} đ</span>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Tổng vốn</div>
+                              <div className="text-2xl font-black text-slate-900 tracking-tight font-mono">
+                                {totalBuyPrice.toLocaleString()} <span className="text-sm font-semibold text-slate-500">VNĐ</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Khung đổ xuống hiển thị chi tiết từng tài sản vàng khi có gộp */}
+                      {isMultiple && isExpanded && (
+                        <div className="border-t border-slate-100 bg-slate-50/70 px-5 py-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                          <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Chi tiết từng đợt mua ({items.length})
+                          </div>
+                          {items.map((item: any) => {
+                            const itemProfit = calculateGoldProfit(item);
+                            const itemShopName = getGoldShopName(item.name || "");
+                            const itemTitle = `${item.details.quantity} chỉ vàng ${itemShopName}`;
+
+                            return (
+                              <div
+                                key={item.id}
+                                className="bg-white p-4 rounded-xl border border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4 relative group/item"
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="text-slate-800 font-bold text-base">{itemTitle}</h4>
+                                    <div className="flex items-center space-x-1">
+                                      <button
+                                        onClick={() => handleEditAsset(item)}
+                                        className="p-1.5 text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 rounded-full border border-slate-200 transition-all"
+                                        title="Sửa"
+                                      >
+                                        <Edit2 size={13} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteAsset(item.id)}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 rounded-full border border-slate-200 transition-all"
+                                        title="Xóa"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center mt-2 gap-3">
+                                    <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                                      {item.details.quantity} chỉ {getGoldTypeLabel(item.details.goldType)}
+                                    </span>
+                                    <span className="inline-flex items-center text-xs font-medium text-slate-500">
+                                      <Calendar size={12} className="mr-1" /> Mua: {new Date(item.details.buyDate).toLocaleDateString('vi-VN')}
+                                    </span>
+                                    <span className="inline-flex items-center text-xs font-medium text-slate-500">
+                                      <Wallet size={12} className="mr-1" /> Vốn: {Number(item.details.buyPrice).toLocaleString()}đ
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {itemProfit && (
+                                  <div className="md:text-right flex flex-col items-start md:items-end min-w-[190px] border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-4">
+                                    <div className="text-[11px] text-slate-400 font-medium uppercase">Định giá</div>
+                                    <div className="text-lg font-bold text-slate-900 font-mono mb-1">
+                                      {Math.round(itemProfit.currentValue).toLocaleString()} <span className="text-xs text-slate-500">VNĐ</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 text-xs">
+                                      <span className={`px-2 py-0.5 rounded font-medium ${itemProfit.actualProfit >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                                        Biến động: {itemProfit.actualProfit > 0 ? "+" : ""}{Math.round(itemProfit.actualProfit).toLocaleString()}đ
+                                      </span>
+                                      <span className={`px-2 py-0.5 rounded font-medium ${itemProfit.difference >= 0 ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"}`}>
+                                        So vs NH: {itemProfit.difference > 0 ? "+" : ""}{Math.round(itemProfit.difference).toLocaleString()}đ
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                // SAVINGS asset
+                const a = entry.asset;
                 return (
                   <div key={a.id} className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md ring-1 ring-slate-200/60 transition-all group flex flex-col md:flex-row md:items-center relative">
                     <div className="absolute top-4 right-4 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -449,102 +714,60 @@ export default function AssetGroupDetail(props: { params: Promise<{ id: string }
                     </div>
 
                     <div className="flex items-start space-x-4 flex-1">
-                      <div className={`p-3.5 rounded-xl flex-shrink-0 ${isGold ? 'bg-amber-100/50 text-amber-600 ring-1 ring-amber-200' : 'bg-emerald-100/50 text-emerald-600 ring-1 ring-emerald-200'}`}>
-                        {isGold ? <Coins size={24} /> : <Landmark size={24} />}
+                      <div className="p-3.5 rounded-xl flex-shrink-0 bg-emerald-100/50 text-emerald-600 ring-1 ring-emerald-200">
+                        <Landmark size={24} />
                       </div>
                       <div className="pt-1">
                         <h3 className="text-slate-900 font-bold text-lg leading-tight pr-12">{a.name}</h3>
 
                         <div className="flex flex-wrap items-center mt-2 gap-3">
-                          {isGold ? (
-                            <>
-                              <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-600">
-                                {a.details.quantity} chỉ {a.details.goldType === 'SJ9999' ? 'Vàng Nhẫn Tư Nhân' : a.details.goldType === 'SJC' ? 'Vàng Miếng SJC' : a.details.goldType}
-                              </span>
-                              <span className="inline-flex items-center text-xs font-medium text-slate-500">
-                                <Calendar size={12} className="mr-1" /> Mua: {new Date(a.details.buyDate).toLocaleDateString('vi-VN')}
-                              </span>
-                              <span className="inline-flex items-center text-xs font-medium text-slate-500">
-                                <Wallet size={12} className="mr-1" /> Vốn: {a.details.buyPrice.toLocaleString()}đ
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-600">
-                                {a.details.bankName}
-                              </span>
-                              <span className="inline-flex items-center text-xs font-medium text-slate-500">
-                                <TrendingUp size={12} className="mr-1" /> Lãi: {a.details.interestRate}% CK{a.details.monthlyInterestRate ? ` + ${a.details.monthlyInterestRate}% HT` : ''}
-                              </span>
-                              <span className="inline-flex items-center text-xs font-medium text-slate-500">
-                                <Calendar size={12} className="mr-1" /> Đáo hạn: {new Date(a.details.maturityDate).toLocaleDateString('vi-VN')}
-                              </span>
-                            </>
-                          )}
+                          <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 text-slate-600">
+                            {a.details.bankName}
+                          </span>
+                          <span className="inline-flex items-center text-xs font-medium text-slate-500">
+                            <TrendingUp size={12} className="mr-1" /> Lãi: {a.details.interestRate}% CK{a.details.monthlyInterestRate ? ` + ${a.details.monthlyInterestRate}% HT` : ''}
+                          </span>
+                          <span className="inline-flex items-center text-xs font-medium text-slate-500">
+                            <Calendar size={12} className="mr-1" /> Đáo hạn: {new Date(a.details.maturityDate).toLocaleDateString('vi-VN')}
+                          </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="mt-5 md:mt-0 md:ml-6 md:text-right flex flex-col items-start md:items-end justify-center min-w-[200px] border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
-                      {isGold && profit ? (
-                        <>
-                          <div className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Định giá hiện tại</div>
-                          <div className="text-2xl font-black text-slate-900 tracking-tight font-mono mb-2">
-                            {profit.currentValue.toLocaleString()} <span className="text-sm font-semibold text-slate-500">VNĐ</span>
-                          </div>
-
-                          <div className="flex flex-col space-y-1.5 w-full">
-                            <div className={`flex items-center justify-between text-sm px-2.5 py-1.5 rounded-lg font-medium ${profit.actualProfit >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                              <span className="mr-4">Biến động:</span>
-                              <span className="flex items-center">
-                                {profit.actualProfit > 0 ? <TrendingUp size={14} className="mr-1" /> : <TrendingDown size={14} className="mr-1" />}
-                                {profit.actualProfit > 0 ? "+" : ""}{profit.actualProfit.toLocaleString()} đ
-                              </span>
-                            </div>
-
-                            <div className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg font-medium ${profit.difference >= 0 ? "bg-indigo-50 text-indigo-700" : "bg-orange-50 text-orange-700"}`}>
-                              <span className="mr-4">So vs gửi NH:</span>
-                              <span>{profit.difference > 0 ? "+" : ""}{profit.difference.toLocaleString()} đ</span>
-                            </div>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          {(() => {
-                            const savingsProfit = calculateSavingsProfit(a);
-                            if (savingsProfit) {
-                              return (
-                                <>
-                                  <div className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Định giá hiện tại</div>
-                                  <div className="text-2xl font-black text-emerald-600 tracking-tight font-mono mb-2">
-                                    {Math.round(savingsProfit.totalCurrentValue).toLocaleString()} <span className="text-sm font-semibold text-emerald-600/70">VNĐ</span>
-                                  </div>
-                                  <div className="flex flex-col space-y-1.5 w-full">
-                                    <div className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg font-medium bg-emerald-50 text-emerald-700">
-                                      <span className="mr-4">Lãi dồn tích (CK):</span>
-                                      <span>+{Math.round(savingsProfit.currentAccrued).toLocaleString()} đ</span>
-                                    </div>
-                                    {a.details.monthlyInterestRate > 0 && (
-                                      <div className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg font-medium bg-indigo-50 text-indigo-700">
-                                        <span className="mr-4">Lãi đã nhận (HT):</span>
-                                        <span>+{Math.round(savingsProfit.monthlyReceived).toLocaleString()} đ</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </>
-                              );
-                            }
-                            return (
-                              <>
-                                <div className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Số dư gốc</div>
-                                <div className="text-2xl font-black text-emerald-600 tracking-tight font-mono">
-                                  {a.value.toLocaleString()} <span className="text-sm font-semibold text-emerald-600/70">VNĐ</span>
+                      {(() => {
+                        const savingsProfit = calculateSavingsProfit(a);
+                        if (savingsProfit) {
+                          return (
+                            <>
+                              <div className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Định giá hiện tại</div>
+                              <div className="text-2xl font-black text-emerald-600 tracking-tight font-mono mb-2">
+                                {Math.round(savingsProfit.totalCurrentValue).toLocaleString()} <span className="text-sm font-semibold text-emerald-600/70">VNĐ</span>
+                              </div>
+                              <div className="flex flex-col space-y-1.5 w-full">
+                                <div className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg font-medium bg-emerald-50 text-emerald-700">
+                                  <span className="mr-4">Lãi dồn tích (CK):</span>
+                                  <span>+{Math.round(savingsProfit.currentAccrued).toLocaleString()} đ</span>
                                 </div>
-                              </>
-                            );
-                          })()}
-                        </>
-                      )}
+                                {a.details.monthlyInterestRate > 0 && (
+                                  <div className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg font-medium bg-indigo-50 text-indigo-700">
+                                    <span className="mr-4">Lãi đã nhận (HT):</span>
+                                    <span>+{Math.round(savingsProfit.monthlyReceived).toLocaleString()} đ</span>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          );
+                        }
+                        return (
+                          <>
+                            <div className="text-xs text-slate-500 font-medium mb-1 uppercase tracking-wider">Số dư gốc</div>
+                            <div className="text-2xl font-black text-emerald-600 tracking-tight font-mono">
+                              {a.value.toLocaleString()} <span className="text-sm font-semibold text-emerald-600/70">VNĐ</span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
